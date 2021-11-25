@@ -10,6 +10,7 @@ use crate::{
         NLM_F_ACK,
         NLM_F_CREATE,
         NLM_F_EXCL,
+        NLM_F_REPLACE,
         NLM_F_REQUEST,
     },
     try_nl,
@@ -244,6 +245,7 @@ impl VxlanAddRequest {
 pub struct LinkAddRequest {
     handle: Handle,
     message: LinkMessage,
+    replace: bool,
 }
 
 impl LinkAddRequest {
@@ -251,6 +253,7 @@ impl LinkAddRequest {
         LinkAddRequest {
             handle,
             message: LinkMessage::default(),
+            replace: false,
         }
     }
 
@@ -259,9 +262,11 @@ impl LinkAddRequest {
         let LinkAddRequest {
             mut handle,
             message,
+            replace,
         } = self;
         let mut req = NetlinkMessage::from(RtnlMessage::NewLink(message));
-        req.header.flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE;
+        let replace = if replace { NLM_F_REPLACE } else { NLM_F_EXCL };
+        req.header.flags = NLM_F_REQUEST | NLM_F_ACK | replace | NLM_F_CREATE;
 
         let mut response = handle.request(req)?;
         while let Some(message) = response.next().await {
@@ -352,6 +357,14 @@ impl LinkAddRequest {
         self.name(name.clone())
             .link_info(InfoKind::Bridge, None)
             .append_nla(Nla::IfName(name))
+    }
+
+    /// Replace existing matching link.
+    pub fn replace(self) -> Self {
+        Self {
+            replace: true,
+            ..self
+        }
     }
 
     fn up(mut self) -> Self {
