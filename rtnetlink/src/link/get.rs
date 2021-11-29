@@ -15,10 +15,11 @@ pub struct LinkGetRequest {
     handle: Handle,
     message: LinkMessage,
     // There are two ways to retrieve links: we can either dump them
-    // all and filter the result, or if we already know the index of
-    // the link we're looking for, we can just retrieve that one. If
-    // `dump` is `true`, all the links are fetched. Otherwise, only
-    // the link that match the given index is fetched.
+    // all and filter the result, or if we already know the index or
+    // the name of the link we're looking for, we can just retrieve
+    // that one. If `dump` is `true`, all the links are fetched.
+    // Otherwise, only the link that match the given index or name
+    // is fetched.
     dump: bool,
     filter_builder: LinkFilterBuilder,
 }
@@ -73,12 +74,25 @@ impl LinkGetRequest {
         &mut self.message
     }
 
+    /// Lookup a link by index
     pub fn match_index(mut self, index: u32) -> Self {
         self.dump = false;
         self.message.header.index = index;
         self
     }
 
+    /// Lookup a link by name
+    pub fn match_name(mut self, name: String) -> Self {
+        self.dump = false;
+        self.message.nlas.push(Nla::IfName(name));
+        self
+    }
+
+    /// Dumps all links, and returns only the one with the given name (if any)
+    ///
+    /// If your kernel is recent enough (> 2.6.33), consider [`match_name`] as
+    /// it will only request the link with the specific name from the kernel.
+    /// This is kept only for backwards compatibility with those older kernels.
     pub fn set_name_filter(mut self, name: String) -> Self {
         self.filter_builder.name = Some(name);
         self
